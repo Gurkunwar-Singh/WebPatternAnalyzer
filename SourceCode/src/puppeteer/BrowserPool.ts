@@ -12,31 +12,32 @@ let BROWSER_INSTANCE_DEBUG_PORT_STARTING = parseInt(
 );
 const ENVIRONMENT = process.env.ENVIRONMENT || 'production';
 const PROXIES = process.env.PROXIES ? process.env.PROXIES.split(',') : [];
-// Add this function at the top of browserPool.ts
 function getChromePath(): string | undefined {
   if (process.env.NODE_ENV !== 'production') return undefined;
   
-  // Possible Chrome/Chromium paths on Render
+  // All possible Chrome/Chromium locations on Render
   const possiblePaths = [
     '/opt/render/.cache/puppeteer/chrome/linux-147.0.7727.57/chrome-linux64/chrome',
+    '/opt/render/project/src/SourceCode/.local-chrome/chrome-linux64/chrome',
+    process.env.PUPPETEER_EXECUTABLE_PATH,
     '/usr/bin/google-chrome',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
-    process.env.PUPPETEER_EXECUTABLE_PATH,
   ].filter(Boolean);
   
   for (const path of possiblePaths) {
     try {
-      // Check if file exists
-      require('fs').accessSync(path, require('fs').constants.X_OK);
-      logger.info(`Found Chrome at: ${path}`);
-      return path;
+      const fs = require('fs');
+      if (fs.existsSync(path) && fs.accessSync(path, fs.constants.X_OK) === undefined) {
+        console.log(`Found Chrome at: ${path}`);
+        return path;
+      }
     } catch (err) {
-      // Path doesn't exist or isn't executable
+      
     }
   }
   
-  logger.warn('No Chrome executable found, relying on Puppeteer default');
+  console.warn('⚠️ No Chrome executable found, relying on Puppeteer default');
   return undefined;
 }
 
@@ -107,17 +108,12 @@ class BrowserPool {
 
 
 async initialize(): Promise<void> {
-
   if (this.isInitialized) return;
-  // Then in initialize():
-const chromePath = getChromePath();
 
-  logger.info(`Initializing browser pool with ${this.maxPoolSize} instances`);
+  console.log(`Initializing browser pool with ${this.maxPoolSize} instances`);
   
-  // Determine Chrome path based on environment
-  // const chromePath = process.env.NODE_ENV === 'production'
-  //   ? '/opt/render/.cache/puppeteer/chrome/linux-147.0.7727.57/chrome-linux64/chrome'
-  //   : undefined;
+  const chromePath = getChromePath();
+  console.log(`Using Chrome path: ${chromePath || 'default'}`);
   
   for (let i = 0; i < this.maxPoolSize; i++) {
     let launchArgs: string[] = [
@@ -130,16 +126,21 @@ const chromePath = getChromePath();
     ];
 
     try {
-      const browser = await puppeteer.launch({
+      const launchOptions: any = {
         headless: true,
         args: launchArgs,
-        executablePath: chromePath, // Use the specific Chrome path in production
-      });
-
+      };
+      
+      // Only set executablePath if we found one
+      if (chromePath) {
+        launchOptions.executablePath = chromePath;
+      }
+      
+      const browser = await puppeteer.launch(launchOptions);
       this.pool.push({ browser, linkedPort: undefined });
-      logger.info(`Browser instance ${i + 1}/${this.maxPoolSize} initialized`);
+      console.log(`✅ Browser instance ${i + 1}/${this.maxPoolSize} initialized`);
     } catch (error) {
-      logger.error(`Failed to launch browser:`, error);
+      console.error(`❌ Failed to launch browser:`, error);
       throw error;
     }
   }

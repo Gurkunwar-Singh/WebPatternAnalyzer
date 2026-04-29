@@ -10,13 +10,13 @@
     "lint": "eslint \"src/**/*.{js,ts}\"",
     "lint:fix": "eslint \"src/**/*.{js,ts}\" --fix",
     "format": "prettier --write \"src/**/*.{js,ts,json}\"",
-   "postinstall": "npm run build && npx puppeteer browsers install chrome",
+    "postinstall": "npm run build && npx puppeteer browsers install chrome && cp -r $(npx puppeteer browsers install chrome --path) ./.local-chrome",
     "clean": "rm -rf dist",
     "rebuild": "npm run clean && npm run build"
   },
    "engines": {
-    "node": "18.x",
-    "npm": "9.x"
+    "node": "20.x",
+    "npm": "10.x"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
