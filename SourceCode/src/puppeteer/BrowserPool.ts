@@ -22,90 +22,90 @@ class BrowserPool {
     this.maxPoolSize = maxPoolSize;
   }
 
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+//   async initialize(): Promise<void> {
+//   if (this.isInitialized) return;
 
-    logger.info(`Initializing browser pool with ${this.maxPoolSize} instances`);
-    
-    for (let i = 0; i < this.maxPoolSize; i++) {
-      let launchArgs: string[] = [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--window-size=1920,1080',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-extensions'
-      ];
+//   logger.info(`Initializing browser pool with ${this.maxPoolSize} instances`);
+  
+//   for (let i = 0; i < this.maxPoolSize; i++) {
+//     let launchArgs: string[] = [
+//       '--no-sandbox',
+//       '--disable-setuid-sandbox',
+//       '--disable-dev-shm-usage',
+//       '--disable-gpu',
+//       '--disable-web-security',
+//       '--disable-features=IsolateOrigins,site-per-process',
+//       '--window-size=1920,1080',
+//       '--disable-accelerated-2d-canvas',
+//       '--no-first-run',
+//       '--no-zygote',
+//       '--disable-extensions'
+//     ];
 
-      let linkedPort: number | undefined;
+//     let linkedPort: number | undefined;
 
-      if (ENVIRONMENT === 'development') {
-        linkedPort = BROWSER_INSTANCE_DEBUG_PORT_STARTING++;
-        launchArgs.push(`--remote-debugging-port=${linkedPort}`);
-      }
+//     if (ENVIRONMENT === 'development') {
+//       linkedPort = BROWSER_INSTANCE_DEBUG_PORT_STARTING++;
+//       launchArgs.push(`--remote-debugging-port=${linkedPort}`);
+//     }
 
-      // Add proxy if available
-      if (PROXIES.length > i && PROXIES[i]) {
-        launchArgs.push(`--proxy-server=${PROXIES[i]}`);
-        logger.info(`Using proxy for browser ${i}: ${PROXIES[i]}`);
-      }
+//     try {
+//       // Let Puppeteer find Chrome automatically
+//       const browser: Browser = await puppeteer.launch({
+//         headless: true,
+//         args: launchArgs,
+//         // Remove executablePath - let Puppeteer find it
+//       });
 
-      try {
-        // Try multiple possible Chrome paths on Render
-        const chromePaths = [
-          '/usr/bin/google-chrome',
-          '/usr/bin/chromium',
-          '/usr/bin/chromium-browser',
-          process.env.PUPPETEER_EXECUTABLE_PATH
-        ].filter(Boolean);
+//       this.pool.push({
+//         browser,
+//         linkedPort,
+//       });
+      
+//       logger.info(`Browser instance ${i + 1}/${this.maxPoolSize} initialized`);
+//     } catch (error) {
+//       logger.error(`Failed to launch browser instance ${i}:`, error);
+//       throw error;
+//     }
+//   }
 
-        let browser: Browser | null = null;
-        
-        // Try each Chrome path
-        for (const chromePath of chromePaths) {
-          try {
-            browser = await puppeteer.launch({
-              headless: true,
-              executablePath: chromePath as string,
-              args: launchArgs,
-            });
-            logger.info(`Successfully launched Chrome at: ${chromePath}`);
-            break;
-          } catch (err) {
-            logger.warn(`Failed to launch Chrome at ${chromePath}:`, err);
-          }
-        }
+//   this.isInitialized = true;
+//   logger.info('Browser pool initialized successfully');
+// }
+// src/utils/browserPool.ts
+async initialize(): Promise<void> {
+  if (this.isInitialized) return;
 
-        // If no Chrome found, let puppeteer download its own
-        if (!browser) {
-          logger.info('Falling back to puppeteer-managed Chrome');
-          browser = await puppeteer.launch({
-            headless: true,
-            args: launchArgs,
-          });
-        }
+  logger.info(`Initializing browser pool with ${this.maxPoolSize} instances`);
+  
+  for (let i = 0; i < this.maxPoolSize; i++) {
+    let launchArgs: string[] = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-first-run',
+      '--no-zygote'
+    ];
 
-        this.pool.push({
-          browser,
-          linkedPort,
-        });
-        
-        logger.info(`Browser instance ${i + 1}/${this.maxPoolSize} initialized`);
-      } catch (error) {
-        logger.error(`Failed to launch browser instance ${i}:`, error);
-        throw error;
-      }
+    try {
+      // Let Puppeteer download and use its own Chromium
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: launchArgs,
+        // Remove executablePath - let Puppeteer handle it
+      });
+
+      this.pool.push({ browser, linkedPort: undefined });
+      logger.info(`Browser instance ${i + 1}/${this.maxPoolSize} initialized`);
+    } catch (error) {
+      logger.error(`Failed to launch browser:`, error);
+      throw error;
     }
-
-    this.isInitialized = true;
-    logger.info('Browser pool initialized successfully');
   }
+
+  this.isInitialized = true;
+}
 
   async getBrowser(): Promise<BrowserPoolItem> {
     if (!this.isInitialized) {
